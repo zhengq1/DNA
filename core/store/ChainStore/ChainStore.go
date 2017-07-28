@@ -2,6 +2,7 @@ package ChainStore
 
 import (
 	. "DNA/common"
+	"DNA/common/config"
 	"DNA/common/log"
 	"DNA/common/serialization"
 	"DNA/core/account"
@@ -17,11 +18,18 @@ import (
 	. "DNA/errors"
 	"DNA/events"
 	"bytes"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/bitly/go-simplejson"
+	"io/ioutil"
 	"math/big"
+	"net/http"
 	"sort"
 	"sync"
+	"time"
+	"unsafe"
 )
 
 const (
@@ -57,11 +65,12 @@ func NewStore(file string) (IStore, error) {
 }
 
 func NewLedgerStore() (ILedgerStore, error) {
-	// TODO: read config file decide which db to use.
-	cs, err := NewChainStore("Chain")
+	cs, err := NewChainStore(config.Parameters.StoreDir)
 	if err != nil {
 		return nil, err
 	}
+
+	go cs.ColdDataMover()
 
 	return cs, nil
 }
@@ -532,22 +541,49 @@ func (bd *ChainStore) getTx(tx *tx.Transaction, hash Uint256) error {
 	prefix := []byte{byte(DATA_Transaction)}
 	tHash, err_get := bd.st.Get(append(prefix, hash.ToArray()...))
 	if err_get != nil {
-		//TODO: implement error process
 		return err_get
 	}
 
 	r := bytes.NewReader(tHash)
 
 	// get height
-	_, err := serialization.ReadUint32(r)
+	height, err := serialization.ReadUint32(r)
 	if err != nil {
 		return err
 	}
 
 	// Deserialize Transaction
 	err = tx.Deserialize(r)
+	if err != nil {
+		log.Warn("[getTX] tx.Deserialize error, tx maybe ColdData, ", err)
 
-	return err
+		txData, err_get := GetColdData(hex.EncodeToString(hash.ToArray()))
+		if err_get != nil {
+			log.Fatal("[getTX] GetColdData Fatal, ", err_get)
+			return err_get
+		}
+
+		r := bytes.NewReader(txData)
+
+		// get height by colddata
+		height_colddata, err := serialization.ReadUint32(r)
+		if err != nil {
+			return err
+		}
+
+		if height != height_colddata {
+			log.Error("[getTX] height from ColdData not equal to StoreData")
+			return errors.New("[getTX] height from ColdData not equal to StoreData")
+		}
+
+		err = tx.Deserialize(r)
+		if err != nil {
+			log.Fatal("[getTX] tx.Deserialize with ColdData Fatal, ", err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (bd *ChainStore) SaveTransaction(tx *tx.Transaction, height uint32) error {
@@ -575,6 +611,36 @@ func (bd *ChainStore) SaveTransaction(tx *tx.Transaction, height uint32) error {
 	}
 
 	return nil
+}
+
+func (bd *ChainStore) getBlockWithoutTx(hash Uint256) (*Block, error) {
+	var b *Block = new(Block)
+
+	b.Blockdata = new(Blockdata)
+	b.Blockdata.Program = new(program.Program)
+
+	prefix := []byte{byte(DATA_Header)}
+	bHash, err_get := bd.st.Get(append(prefix, hash.ToArray()...))
+	if err_get != nil {
+		//TODO: implement error process
+		return nil, err_get
+	}
+
+	r := bytes.NewReader(bHash)
+
+	// first 8 bytes is sys_fee
+	_, err := serialization.ReadUint64(r)
+	if err != nil {
+		return nil, err
+	}
+
+	// Deserialize block data
+	err = b.FromTrimmedData(r)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 func (bd *ChainStore) GetBlock(hash Uint256) (*Block, error) {
@@ -1442,4 +1508,249 @@ func (bd *ChainStore) GetAssets() map[Uint256]*Asset {
 	}
 
 	return assets
+}
+
+func (bd *ChainStore) ColdDataMover() {
+	Height := uint32(0)
+	prefix := []byte{byte(SYS_ColdDataMoverHeight)}
+	ColdDataHeight, err_get := bd.st.Get(prefix)
+	if err_get == nil {
+		r := bytes.NewReader(ColdDataHeight)
+		Height, err_get = serialization.ReadUint32(r)
+		if err_get != nil {
+			Height = 0
+		}
+	}
+
+	server := config.Parameters.ColdDataServer
+	frequency := config.Parameters.ColdDataFrequency
+	elapse := config.Parameters.ColdDataElapse
+
+	for true {
+		//t := time.Now()
+		//log.Trace("[ColdDataMover] begin sleep: ", time.Now().String() )
+		time.Sleep(time.Duration(1000000000 * frequency))
+		//log.Trace("[ColdDataMover] end sleep: ", time.Now().Sub(t).String() )
+
+		for true {
+
+			// get block hash by height
+			hash, err := bd.GetBlockHash(Height)
+			if err != nil {
+				log.Warnf("[ColdDataMover] can't find block hash with height: %d, ERR:", Height, err)
+				break
+			}
+
+			// get block by hash
+			block, err := bd.getBlockWithoutTx(hash)
+
+			// check time() - block time > elapse
+			t := time.Now().Unix()
+			if uint64(t)-uint64(block.Blockdata.Timestamp) <= uint64(elapse) {
+				break
+			}
+
+			// init map with txhash & txData
+			txMaps := make(map[Uint256][]byte)
+
+			for i := 0; i < len(block.Transactions); i++ {
+				prefix := []byte{byte(DATA_Transaction)}
+				txHash := block.Transactions[i].Hash()
+				//log.Tracef("[ColdDataMover] txHash: %x", txHash.ToArray() )
+
+				txData, err_get := bd.st.Get(append(prefix, txHash.ToArray()...))
+				if err_get != nil {
+					log.Error("[ColdDataMover] Get Transaction error: ", err_get)
+					return
+				}
+
+				r := bytes.NewReader(txData)
+
+				// get height
+				_, err := serialization.ReadUint32(r)
+				if err != nil {
+					log.Error("[ColdDataMover] serialization height err: ", err)
+					return
+				}
+
+				// Deserialize Transaction
+				err = block.Transactions[i].Deserialize(r)
+				if err != nil {
+					log.Warn("[ColdDataMover] tx deserialize error: ", err)
+					continue
+				}
+
+				// check TxType
+				if block.Transactions[i].TxType == tx.Record {
+					txMaps[txHash] = txData
+				}
+
+			}
+
+			if len(txMaps) == 0 {
+				Height++
+				continue
+			}
+
+			var jsonTxList []map[string]interface{}
+			for hash, data := range txMaps {
+				//log.Tracef("[ColdDataMover] txMaps, key: %x, value: %x ", hash, data )
+
+				t := make(map[string]interface{})
+				t["TxHash"] = hex.EncodeToString(hash.ToArray())
+				t["Transaction"] = hex.EncodeToString(data)
+
+				jsonTxList = append(jsonTxList, t)
+			}
+
+			jsonParam := make(map[string]interface{})
+			jsonParam["TxList"] = jsonTxList
+
+			jsonData := make(map[string]interface{})
+			jsonData["Qid"] = fmt.Sprintf("%d", Height)
+			jsonData["Param"] = jsonParam
+
+			bytesData, err := json.Marshal(jsonData)
+			if err != nil {
+				log.Error("[ColdDataMover] json.Marshal with error: ", err)
+				return
+			}
+
+			respFlag, err := SendColdData(server, bytesData)
+			if err != nil {
+				log.Error("[ColdDataMover] SendColdData with error: ", err)
+				return
+			}
+
+			if respFlag {
+				// success, put new data instead of tx
+
+				// height as tx value
+				w := bytes.NewBuffer(nil)
+				serialization.WriteUint32(w, Height)
+
+				for hash, _ := range txMaps {
+					// hash as tx key
+					txhash := bytes.NewBuffer(nil)
+					txhash.WriteByte(byte(DATA_Transaction))
+					hash.Serialize(txhash)
+
+					// put value
+					err = bd.st.Put(txhash.Bytes(), w.Bytes())
+					if err != nil {
+						log.Error("[ColdDataMover] Put tx with error: ", err)
+						return
+					}
+				}
+
+				//store height
+				err = bd.st.Put([]byte{byte(SYS_ColdDataMoverHeight)}, w.Bytes())
+				if err != nil {
+					log.Error("[ColdDataMover] Put Height with error: ", err)
+					return
+				}
+
+			} else {
+				// failed
+				log.Error("[ColdDataMover] server data deserialize error")
+				continue
+			}
+
+			log.Tracef("[ColdDataMover] finish move tx with height: %d ", Height)
+
+			Height++
+		}
+	}
+}
+
+func GetColdData(queryData string) ([]byte, error) {
+	server := config.Parameters.ColdDataServer
+
+	resp, err := http.Get(server + "?txHash=" + queryData)
+	if err != nil {
+		return nil, err
+	}
+
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	//str := (*string)(unsafe.Pointer(&respBytes))
+	//log.Trace(*str)
+
+	// deserialize []byte to json
+	js, err := simplejson.NewJson(respBytes)
+	if err != nil {
+		log.Error("[GetColdData] simplejson.NewJson with error: ", err)
+		return nil, err
+	}
+
+	if js.Get("ErrorCode").MustInt() == 0 {
+		// success resp
+
+		TxList, err := js.Get("Data").Get("TxList").Array()
+		if err != nil {
+			return nil, err
+		}
+
+		if len(TxList) != 1 {
+			return nil, errors.New("[GetColdData] resp TxList array length != 1")
+		}
+
+		tx := js.Get("Data").Get("TxList").GetIndex(0)
+		txHash := tx.Get("TxHash").MustString()
+		if txHash != queryData {
+			return nil, errors.New("[GetColdData] resp txHash not equal to queryhash.")
+		}
+
+		txData := tx.Get("Transaction").MustString()
+
+		respData, err := hex.DecodeString(txData)
+		if err != nil {
+			return nil, err
+		}
+
+		return respData, nil
+	} else {
+		// fatal
+		return nil, errors.New(fmt.Sprintf("[GetColdData] resp error with code: %d", js.Get("ErrorCode").MustInt()))
+	}
+
+}
+
+func SendColdData(server string, data []byte) (bool, error) {
+	reader := bytes.NewReader(data)
+	request, err := http.NewRequest("POST", server, reader)
+	if err != nil {
+		return false, err
+	}
+	request.Header.Set("Content-Type", "application/json;charset=UTF-8")
+	client := http.Client{}
+	resp, err := client.Do(request)
+	if err != nil {
+		return false, err
+	}
+	respBytes, err := ioutil.ReadAll(resp.Body)
+	resp.Body.Close()
+	if err != nil {
+		return false, err
+	}
+
+	str := (*string)(unsafe.Pointer(&respBytes))
+	log.Trace(*str)
+
+	// deserialize []byte to json
+	js, err := simplejson.NewJson(respBytes)
+	if err != nil {
+		log.Error("[SendColdData] simplejson.NewJson with error: ", err)
+		return false, err
+	}
+
+	if js.Get("ErrorCode").MustInt() == 0 {
+		return true, nil
+	} else {
+		return false, nil
+	}
 }
