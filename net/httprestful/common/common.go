@@ -428,12 +428,17 @@ func SendRawTransaction(cmd map[string]interface{}) map[string]interface{} {
 //identityupdate
 func GetIdentityUpdate(cmd map[string]interface{}) map[string]interface{} {
 	resp := ResponsePack(Err.SUCCESS)
-	key, ok := cmd["key"].(string)
+	namespace, ok := cmd["Namespace"].(string)
 	if !ok {
 		resp["Error"] = Err.INVALID_PARAMS
 		return resp
 	}
-	val, err := ledger.DefaultLedger.Store.GetIdentity([]byte(key))
+	key, ok := cmd["Key"].(string)
+	if !ok {
+		resp["Error"] = Err.INVALID_PARAMS
+		return resp
+	}
+	val, err := ledger.DefaultLedger.Store.GetIdentity([]byte(namespace), []byte(key))
 	if err != nil {
 		fmt.Println("GetIdentity err:", err)
 		resp["Error"] = Err.INVALID_PARAMS

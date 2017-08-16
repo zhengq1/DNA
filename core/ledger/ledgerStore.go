@@ -50,6 +50,6 @@ type ILedgerStore interface {
 	IsBlockInStore(hash Uint256) bool
 	Close()
 
-	GetIdentity(did []byte) ([]byte, error)
+	GetIdentity(namespace []byte, DID []byte) ([]byte, error)
 	IsIdentityUpdaterVaild(Tx *tx.Transaction) bool
 }

@@ -1371,11 +1371,14 @@ func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
 	return true
 }
 
-func (bd *ChainStore) GetIdentity(DID []byte) ([]byte, error) {
+func (bd *ChainStore) GetIdentity(namespace []byte, id []byte) ([]byte, error) {
 
 	// idKey
 	idPrefix := []byte{byte(ST_IDENTITY)}
-	idKey := append(idPrefix, DID...)
+	idKey := append(idPrefix, "did:"...)
+	idKey = append(idKey, namespace...)
+	idKey = append(idKey, ":"...)
+	idKey = append(idKey, id...)
 	idValue, err := bd.st.Get(idKey)
 	if err != nil {
 		return nil, err

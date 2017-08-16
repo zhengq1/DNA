@@ -269,6 +269,7 @@ func CheckTransactionPayload(Tx *tx.Transaction) error {
 	case *payload.Record:
 	case *payload.DeployCode:
 	case *payload.DataFile:
+	case *payload.IdentityUpdate:
 	default:
 		return errors.New("[txValidator],invalidate transaction payload type.")
 	}

@@ -48,7 +48,7 @@ const (
 	Api_GetUTXObyAddr      = "/api/v1/asset/utxos/:addr"
 	Api_SendRawTx          = "/api/v1/transaction"
 	Api_SendRcdTxByTrans   = "/api/v1/custom/transaction/record"
-	Api_GetIdentityUpdate  = "/api/v1/identityupdate/:key"
+	Api_GetIdentityUpdate  = "/api/v1/identityupdate/:namespace/:key"
 	Api_OauthServerUrl     = "/api/v1/config/oauthserver/url"
 	Api_NoticeServerUrl    = "/api/v1/config/noticeserver/url"
 	Api_NoticeServerState  = "/api/v1/config/noticeserver/state"
@@ -192,7 +192,7 @@ func (rt *restServer) getPath(url string) string {
 		return Api_GetUTXObyAsset
 	} else if strings.Contains(url, strings.TrimRight(Api_Getasset, ":hash")) {
 		return Api_Getasset
-	} else if strings.Contains(url, strings.TrimRight(Api_GetIdentityUpdate, ":key")) {
+	} else if strings.Contains(url, strings.TrimRight(Api_GetIdentityUpdate, ":namespace/:key")) {
 		return Api_GetIdentityUpdate
 	}
 	return url
@@ -255,6 +255,7 @@ func (rt *restServer) getParams(r *http.Request, url string, req map[string]inte
 		req["Raw"] = r.FormValue("raw")
 		break
 	case Api_GetIdentityUpdate:
+		req["Namespace"] = getParam(r, "namespace")
 		req["Key"] = getParam(r, "key")
 		break
 	case Api_OauthServerUrl:
