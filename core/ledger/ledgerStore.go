@@ -49,4 +49,7 @@ type ILedgerStore interface {
 	IsTxHashDuplicate(txhash Uint256) bool
 	IsBlockInStore(hash Uint256) bool
 	Close()
+
+	GetIdentity(did []byte) ([]byte, error)
+	IsIdentityUpdaterVaild(Tx *tx.Transaction) bool
 }

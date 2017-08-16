@@ -773,6 +773,7 @@ func (bd *ChainStore) persist(b *Block) error {
 			b.Transactions[i].TxType == tx.IssueAsset ||
 			b.Transactions[i].TxType == tx.TransferAsset ||
 			b.Transactions[i].TxType == tx.Record ||
+			b.Transactions[i].TxType == tx.IdentityUpdate ||
 			b.Transactions[i].TxType == tx.BookKeeper ||
 			b.Transactions[i].TxType == tx.PrivacyPayload ||
 			b.Transactions[i].TxType == tx.BookKeeping ||
@@ -799,6 +800,28 @@ func (bd *ChainStore) persist(b *Block) error {
 					quantities[assetId] = value
 				}
 			}
+		}
+
+		if b.Transactions[i].TxType == tx.IdentityUpdate {
+			iu := b.Transactions[i].Payload.(*payload.IdentityUpdate)
+
+			// idKey
+			idPrefix := []byte{byte(ST_IDENTITY)}
+			idKey := append(idPrefix, iu.DID...)
+			//stateValueOld, err_get := bd.st.Get(stateKey)
+
+			// stateValue
+			//stateValue := bytes.NewBuffer(nil)
+			//serialization.WriteVarBytes(stateValue, su.Value)
+
+			// verify tx signer public is in IdentityUpdater list.
+			//publicKey := b.Transactions[i].Programs[0].Parameter[1:34]
+			log.Trace(fmt.Sprintf("IdentityUpdate tx publickey: %x", iu.Updater))
+
+			// if not found in store, put value to the key.
+			// if found in store, rewrite value.
+			log.Trace(fmt.Sprintf("[persist] IdentityUpdate modify, DID: %x, DDO:%x", idKey, iu.DDO))
+			bd.st.BatchPut(idKey, iu.DDO)
 		}
 
 		for index := 0; index < len(b.Transactions[i].Outputs); index++ {
@@ -1341,6 +1364,24 @@ func (bd *ChainStore) GetAccount(programHash Uint160) (*account.AccountState, er
 	accountState.Deserialize(bytes.NewBuffer(state))
 
 	return accountState, nil
+}
+
+func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
+	//su := Tx.Payload.(*payload.IdentityUpdate)
+	return true
+}
+
+func (bd *ChainStore) GetIdentity(DID []byte) ([]byte, error) {
+
+	// idKey
+	idPrefix := []byte{byte(ST_IDENTITY)}
+	idKey := append(idPrefix, DID...)
+	idValue, err := bd.st.Get(idKey)
+	if err != nil {
+		return nil, err
+	}
+
+	return idValue, nil
 }
 
 func (bd *ChainStore) IsBlockInStore(hash Uint256) bool {

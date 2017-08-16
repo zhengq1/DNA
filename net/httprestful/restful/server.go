@@ -39,6 +39,7 @@ const (
 	Api_Getblockbyhash     = "/api/v1/block/details/hash/:hash"
 	Api_Getblockheight     = "/api/v1/block/height"
 	Api_Getblockhash       = "/api/v1/block/hash/:height"
+	Api_GetTotalIssued     = "/api/v1/totalissued/:assetid"
 	Api_Gettransaction     = "/api/v1/transaction/:hash"
 	Api_Getasset           = "/api/v1/asset/:hash"
 	Api_GetBalanceByAddr   = "/api/v1/asset/balances/:addr"
@@ -47,7 +48,7 @@ const (
 	Api_GetUTXObyAddr      = "/api/v1/asset/utxos/:addr"
 	Api_SendRawTx          = "/api/v1/transaction"
 	Api_SendRcdTxByTrans   = "/api/v1/custom/transaction/record"
-	Api_GetStateUpdate     = "/api/v1/stateupdate/:namespace/:key"
+	Api_GetIdentityUpdate  = "/api/v1/identityupdate/:key"
 	Api_OauthServerUrl     = "/api/v1/config/oauthserver/url"
 	Api_NoticeServerUrl    = "/api/v1/config/noticeserver/url"
 	Api_NoticeServerState  = "/api/v1/config/noticeserver/state"
@@ -132,6 +133,7 @@ func (rt *restServer) registryMethod() {
 		Api_Getblockbyhash:     {name: "getblockbyhash", handler: GetBlockByHash},
 		Api_Getblockheight:     {name: "getblockheight", handler: GetBlockHeight},
 		Api_Getblockhash:       {name: "getblockhash", handler: GetBlockHash},
+		Api_GetTotalIssued:     {name: "gettotalissued", handler: GetTotalIssued},
 		Api_Gettransaction:     {name: "gettransaction", handler: GetTransactionByHash},
 		Api_Getasset:           {name: "getasset", handler: GetAssetByHash},
 		Api_GetContract:        {name: "getcontract", handler: GetContract},
@@ -142,7 +144,7 @@ func (rt *restServer) registryMethod() {
 		Api_OauthServerUrl:     {name: "getoauthserverurl", handler: GetOauthServerUrl},
 		Api_NoticeServerUrl:    {name: "getnoticeserverurl", handler: GetNoticeServerUrl},
 		Api_Restart:            {name: "restart", handler: rt.Restart},
-		Api_GetStateUpdate:     {name: "getstateupdate", handler: GetStateUpdate},
+		Api_GetIdentityUpdate:  {name: "getidentityupdate", handler: GetIdentityUpdate},
 	}
 
 	sendRawTransaction := func(cmd map[string]interface{}) map[string]interface{} {
@@ -174,6 +176,8 @@ func (rt *restServer) getPath(url string) string {
 		return Api_Getblockhash
 	} else if strings.Contains(url, strings.TrimRight(Api_Getblockbyhash, ":hash")) {
 		return Api_Getblockbyhash
+	} else if strings.Contains(url, strings.TrimRight(Api_GetTotalIssued, ":assetid")) {
+		return Api_GetTotalIssued
 	} else if strings.Contains(url, strings.TrimRight(Api_Gettransaction, ":hash")) {
 		return Api_Gettransaction
 	} else if strings.Contains(url, strings.TrimRight(Api_GetContract, ":hash")) {
@@ -188,8 +192,8 @@ func (rt *restServer) getPath(url string) string {
 		return Api_GetUTXObyAsset
 	} else if strings.Contains(url, strings.TrimRight(Api_Getasset, ":hash")) {
 		return Api_Getasset
-	} else if strings.Contains(url, strings.TrimRight(Api_GetStateUpdate, ":namespace/:key")) {
-		return Api_GetStateUpdate
+	} else if strings.Contains(url, strings.TrimRight(Api_GetIdentityUpdate, ":key")) {
+		return Api_GetIdentityUpdate
 	}
 	return url
 }
@@ -209,6 +213,9 @@ func (rt *restServer) getParams(r *http.Request, url string, req map[string]inte
 		break
 	case Api_Getblockhash:
 		req["Height"] = getParam(r, "height")
+		break
+	case Api_GetTotalIssued:
+		req["Assetid"] = getParam(r, "assetid")
 		break
 	case Api_Gettransaction:
 		req["Hash"] = getParam(r, "hash")
@@ -247,8 +254,7 @@ func (rt *restServer) getParams(r *http.Request, url string, req map[string]inte
 	case Api_SendRcdTxByTrans:
 		req["Raw"] = r.FormValue("raw")
 		break
-	case Api_GetStateUpdate:
-		req["Namespace"] = getParam(r, "namespace")
+	case Api_GetIdentityUpdate:
 		req["Key"] = getParam(r, "key")
 		break
 	case Api_OauthServerUrl:

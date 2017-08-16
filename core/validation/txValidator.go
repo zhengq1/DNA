@@ -134,6 +134,12 @@ func VerifyTransactionWithLedger(Tx *tx.Transaction, ledger *ledger.Ledger) ErrC
 		log.Info("[VerifyTransactionWithLedger] duplicate transaction check faild.")
 		return ErrTxHashDuplicate
 	}
+	if Tx.TxType == tx.IdentityUpdate {
+		if !IsIdentityUpdaterVaild(Tx, ledger) {
+			return errors.New("[IsIdentityUpdaterVaild] faild.")
+		}
+	}
+
 	return ErrNoError
 }
 
@@ -169,6 +175,10 @@ func CheckDuplicateUtxoInBlock(tx *tx.Transaction, txPoolInputs []string) error 
 
 func IsDoubleSpend(tx *tx.Transaction, ledger *ledger.Ledger) bool {
 	return ledger.IsDoubleSpend(tx)
+}
+
+func IsIdentityUpdaterVaild(tx *tx.Transaction, ledger *ledger.Ledger) bool {
+	return ledger.IsIdentityUpdaterVaild(tx)
 }
 
 func CheckAssetPrecision(Tx *tx.Transaction) error {

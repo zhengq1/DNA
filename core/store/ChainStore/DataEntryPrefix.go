@@ -22,6 +22,9 @@ const (
 	ST_QuantityIssued DataEntryPrefix = 0xc1
 	ST_ACCOUNT        DataEntryPrefix = 0xc2
 
+	// IDENTITY
+	ST_IDENTITY DataEntryPrefix = 0xd1
+
 	//SYSTEM
 	SYS_CurrentBlock      DataEntryPrefix = 0x40
 	SYS_CurrentHeader     DataEntryPrefix = 0x41

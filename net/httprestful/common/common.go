@@ -63,6 +63,34 @@ func GetBlockHash(cmd map[string]interface{}) map[string]interface{} {
 	resp["Result"] = ToHexString(hash.ToArrayReverse())
 	return resp
 }
+func GetTotalIssued(cmd map[string]interface{}) map[string]interface{} {
+	resp := ResponsePack(Err.SUCCESS)
+	assetid, ok := cmd["Assetid"].(string)
+	if !ok {
+		resp["Error"] = Err.INVALID_PARAMS
+		return resp
+	}
+	var assetHash Uint256
+
+	bys, err := HexToBytesReverse(assetid)
+	if err != nil {
+		resp["Error"] = Err.INVALID_PARAMS
+		return resp
+	}
+	if err := assetHash.Deserialize(bytes.NewReader(bys)); err != nil {
+		resp["Error"] = Err.INVALID_PARAMS
+		return resp
+	}
+	amount, err := ledger.DefaultLedger.Store.GetQuantityIssued(assetHash)
+	if err != nil {
+		resp["Error"] = Err.INVALID_PARAMS
+		return resp
+	}
+	val := float64(amount) / math.Pow(10, 8)
+	//valStr := strconv.FormatFloat(val, 'f', -1, 64)
+	resp["Result"] = val
+	return resp
+}
 func GetBlockInfo(block *ledger.Block) BlockInfo {
 	hash := block.Hash()
 	blockHead := &BlockHead{
@@ -397,21 +425,22 @@ func SendRawTransaction(cmd map[string]interface{}) map[string]interface{} {
 	return resp
 }
 
-//stateupdate
-func GetStateUpdate(cmd map[string]interface{}) map[string]interface{} {
+//identityupdate
+func GetIdentityUpdate(cmd map[string]interface{}) map[string]interface{} {
 	resp := ResponsePack(Err.SUCCESS)
-	namespace, ok := cmd["Namespace"].(string)
+	key, ok := cmd["key"].(string)
 	if !ok {
 		resp["Error"] = Err.INVALID_PARAMS
 		return resp
 	}
-	key, ok := cmd["Key"].(string)
-	if !ok {
+	val, err := ledger.DefaultLedger.Store.GetIdentity([]byte(key))
+	if err != nil {
+		fmt.Println("GetIdentity err:", err)
 		resp["Error"] = Err.INVALID_PARAMS
+		resp["Result"] = err
 		return resp
 	}
-	fmt.Println(cmd, namespace, key)
-	//TODO get state from store
+	resp["Result"] = string(val)
 	return resp
 }
 
