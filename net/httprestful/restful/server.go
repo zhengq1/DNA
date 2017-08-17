@@ -48,7 +48,8 @@ const (
 	Api_GetUTXObyAddr      = "/api/v1/asset/utxos/:addr"
 	Api_SendRawTx          = "/api/v1/transaction"
 	Api_SendRcdTxByTrans   = "/api/v1/custom/transaction/record"
-	Api_GetIdentityUpdate  = "/api/v1/identityupdate/:namespace/:key"
+	Api_GetIdentityUpdate  = "/api/v1/identityupdate/:method/:key"
+	Api_GetIdentityEndorse = "/api/v1/identityendorse/:method/:key"
 	Api_OauthServerUrl     = "/api/v1/config/oauthserver/url"
 	Api_NoticeServerUrl    = "/api/v1/config/noticeserver/url"
 	Api_NoticeServerState  = "/api/v1/config/noticeserver/state"
@@ -145,6 +146,7 @@ func (rt *restServer) registryMethod() {
 		Api_NoticeServerUrl:    {name: "getnoticeserverurl", handler: GetNoticeServerUrl},
 		Api_Restart:            {name: "restart", handler: rt.Restart},
 		Api_GetIdentityUpdate:  {name: "getidentityupdate", handler: GetIdentityUpdate},
+		Api_GetIdentityEndorse: {name: "getidentityendorse", handler: GetIdentityEndorse},
 	}
 
 	sendRawTransaction := func(cmd map[string]interface{}) map[string]interface{} {
@@ -192,8 +194,10 @@ func (rt *restServer) getPath(url string) string {
 		return Api_GetUTXObyAsset
 	} else if strings.Contains(url, strings.TrimRight(Api_Getasset, ":hash")) {
 		return Api_Getasset
-	} else if strings.Contains(url, strings.TrimRight(Api_GetIdentityUpdate, ":namespace/:key")) {
+	} else if strings.Contains(url, strings.TrimRight(Api_GetIdentityUpdate, ":method/:key")) {
 		return Api_GetIdentityUpdate
+	} else if strings.Contains(url, strings.TrimRight(Api_GetIdentityEndorse, ":method/:key")) {
+		return Api_GetIdentityEndorse
 	}
 	return url
 }
@@ -255,7 +259,11 @@ func (rt *restServer) getParams(r *http.Request, url string, req map[string]inte
 		req["Raw"] = r.FormValue("raw")
 		break
 	case Api_GetIdentityUpdate:
-		req["Namespace"] = getParam(r, "namespace")
+		req["Method"] = getParam(r, "method")
+		req["Key"] = getParam(r, "key")
+		break
+	case Api_GetIdentityEndorse:
+		req["Method"] = getParam(r, "method")
 		req["Key"] = getParam(r, "key")
 		break
 	case Api_OauthServerUrl:

@@ -135,12 +135,47 @@ func getIdentityUpdate(params []interface{}) map[string]interface{} {
 		return DnaRpcInvalidParameter
 	}
 
-	ddo, err := ledger.DefaultLedger.Store.GetIdentity([]byte(Method), []byte(id))
+	did := append([]byte("did:"), []byte(Method)...)
+	did = append(did, []byte(":")...)
+	did = append(did, []byte(id)...)
+	ddo, err := ledger.DefaultLedger.Store.GetIdentity(did)
 	if err != nil {
 		return DnaRpcInvalidParameter
 	}
 
 	return DnaRpc(json.RawMessage(ddo))
+}
+
+func getIdentityEndorse(params []interface{}) map[string]interface{} {
+	if len(params) < 2 {
+		return DnaRpcNil
+	}
+	var Method string
+	var id string
+
+	switch params[0].(type) {
+	case string:
+		Method = params[0].(string)
+	default:
+		return DnaRpcInvalidParameter
+	}
+
+	switch params[1].(type) {
+	case string:
+		id = params[1].(string)
+	default:
+		return DnaRpcInvalidParameter
+	}
+
+	did := append([]byte("did:"), []byte(Method)...)
+	did = append(did, []byte(":")...)
+	did = append(did, []byte(id)...)
+	val, err := ledger.DefaultLedger.Store.GetIdentityEndorse(did)
+	if err != nil {
+		return DnaRpcInvalidParameter
+	}
+
+	return DnaRpc(val)
 }
 
 func getBestBlockHash(params []interface{}) map[string]interface{} {

@@ -24,6 +24,7 @@ const (
 
 	// IDENTITY
 	ST_IDENTITY DataEntryPrefix = 0xd1
+	ST_ENDORSE  DataEntryPrefix = 0xd2
 
 	//SYSTEM
 	SYS_CurrentBlock      DataEntryPrefix = 0x40

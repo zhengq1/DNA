@@ -2,6 +2,7 @@ package common
 
 import (
 	. "DNA/common"
+	"DNA/common/log"
 	"DNA/core/ledger"
 	tx "DNA/core/transaction"
 	. "DNA/errors"
@@ -429,7 +430,7 @@ func SendRawTransaction(cmd map[string]interface{}) map[string]interface{} {
 //identityupdate
 func GetIdentityUpdate(cmd map[string]interface{}) map[string]interface{} {
 	resp := ResponsePack(Err.SUCCESS)
-	namespace, ok := cmd["Namespace"].(string)
+	method, ok := cmd["Method"].(string)
 	if !ok {
 		resp["Error"] = Err.INVALID_PARAMS
 		return resp
@@ -439,7 +440,11 @@ func GetIdentityUpdate(cmd map[string]interface{}) map[string]interface{} {
 		resp["Error"] = Err.INVALID_PARAMS
 		return resp
 	}
-	val, err := ledger.DefaultLedger.Store.GetIdentity([]byte(namespace), []byte(key))
+
+	did := append([]byte("did:"), []byte(method)...)
+	did = append(did, []byte(":")...)
+	did = append(did, []byte(key)...)
+	val, err := ledger.DefaultLedger.Store.GetIdentity(did)
 	if err != nil {
 		fmt.Println("GetIdentity err:", err)
 		resp["Error"] = Err.INVALID_PARAMS
@@ -447,6 +452,52 @@ func GetIdentityUpdate(cmd map[string]interface{}) map[string]interface{} {
 		return resp
 	}
 	resp["Result"] = json.RawMessage(val)
+	return resp
+}
+
+//identityendorse
+func GetIdentityEndorse(cmd map[string]interface{}) map[string]interface{} {
+	resp := ResponsePack(Err.SUCCESS)
+	method, ok := cmd["Method"].(string)
+	if !ok {
+		resp["Error"] = Err.INVALID_PARAMS
+		return resp
+	}
+	key, ok := cmd["Key"].(string)
+	if !ok {
+		resp["Error"] = Err.INVALID_PARAMS
+		return resp
+	}
+
+	did := append([]byte("did:"), []byte(method)...)
+	did = append(did, []byte(":")...)
+	did = append(did, []byte(key)...)
+	val, err := ledger.DefaultLedger.Store.GetIdentityEndorse(did)
+	if err != nil {
+		fmt.Println("GetIdentity err:", err)
+		resp["Error"] = Err.INVALID_PARAMS
+		resp["Result"] = err
+		return resp
+	}
+
+	rarray := make(map[int]string)
+	for k, v := range val {
+		//log.Errorf("%d, DecodeString:%x", k, v )
+		vb := append([]byte{0x21}, v...)
+		vb = append(vb, 0xac)
+		sh, err := ToCodeHash(vb)
+		if err != nil {
+			log.Error("[GetIdentityEndorse] Uint160ParseFromBytes error: ", err)
+			return nil
+		}
+
+		rarray[k], err = sh.ToAddress()
+		if err != nil {
+			log.Error("[GetIdentityEndorse] ToAddress error: ", err)
+			return nil
+		}
+	}
+	resp["Result"] = rarray
 	return resp
 }
 

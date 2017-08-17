@@ -136,7 +136,7 @@ func VerifyTransactionWithLedger(Tx *tx.Transaction, ledger *ledger.Ledger) ErrC
 	}
 	if Tx.TxType == tx.IdentityUpdate {
 		if !IsIdentityUpdaterVaild(Tx, ledger) {
-			return errors.New("[IsIdentityUpdaterVaild] faild.")
+			return ErrIdentityUpdaterInvalid
 		}
 	}
 

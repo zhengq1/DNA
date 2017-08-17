@@ -807,23 +807,82 @@ func (bd *ChainStore) persist(b *Block) error {
 		if b.Transactions[i].TxType == tx.IdentityUpdate {
 			iu := b.Transactions[i].Payload.(*payload.IdentityUpdate)
 
-			// idKey
-			idPrefix := []byte{byte(ST_IDENTITY)}
-			idKey := append(idPrefix, iu.DID...)
-			//stateValueOld, err_get := bd.st.Get(stateKey)
+			// get did and ddo, compare by time.
+			ddotimeflag := true
+			var od did.DDO
+			var ddo did.DDO
 
-			// stateValue
-			//stateValue := bytes.NewBuffer(nil)
-			//serialization.WriteVarBytes(stateValue, su.Value)
+			oldddo, _ := bd.GetIdentity(iu.DID)
+			if oldddo != nil {
+				const longForm = "2006-01-02T15:04:05Z"
 
-			// verify tx signer public is in IdentityUpdater list.
-			//publicKey := b.Transactions[i].Programs[0].Parameter[1:34]
-			log.Trace(fmt.Sprintf("IdentityUpdate tx publickey: %x", iu.Updater))
+				json.Unmarshal(oldddo, &od)
+				odt, _ := time.Parse(longForm, od.Sig.CreateTime)
 
-			// if not found in store, put value to the key.
-			// if found in store, rewrite value.
-			log.Trace(fmt.Sprintf("[persist] IdentityUpdate modify, DID: %x, DDO:%x", idKey, iu.DDO))
-			bd.st.BatchPut(idKey, iu.DDO)
+				json.Unmarshal(iu.DDO, &ddo)
+				dt, _ := time.Parse(longForm, ddo.Sig.CreateTime)
+
+				if dt.After(odt) {
+				} else {
+					ddotimeflag = false
+				}
+			}
+
+			if ddotimeflag {
+				// idKey
+				idPrefix := []byte{byte(ST_IDENTITY)}
+				idKey := append(idPrefix, iu.DID...)
+
+				// verify tx signer public is in IdentityUpdater list.
+				//publicKey := b.Transactions[i].Programs[0].Parameter[1:34]
+				log.Trace(fmt.Sprintf("IdentityUpdate tx publickey: %x", iu.Updater))
+
+				// if not found in store, put value to the key.
+				// if found in store, rewrite value.
+				log.Trace(fmt.Sprintf("[persist] IdentityUpdate modify, DID: %x, DDO:%x", idKey, iu.DDO))
+				bd.st.BatchPut(idKey, iu.DDO)
+			} else {
+				log.Trace(fmt.Sprintf("IdentityUpdate sig time not after store time: %s", ddo.Sig.CreateTime))
+			}
+
+			// ENDORSE
+			endorse, err := bd.GetIdentityEndorse(iu.DID)
+			if err != nil {
+				return err
+			}
+			if endorse == nil {
+				endorse = make(map[int][]byte)
+			}
+
+			encodeUpdater, err := iu.Updater.EncodePoint(true)
+			if err != nil {
+				return err
+			}
+
+			endorseFlag := false
+			for i := 0; i < len(endorse); i++ {
+				if bytes.Equal(endorse[i], encodeUpdater) == true {
+					endorseFlag = true
+				}
+			}
+
+			// add to endorse list
+			if !endorseFlag {
+				endorse[len(endorse)] = encodeUpdater
+
+				endorsePrefix := []byte{byte(ST_ENDORSE)}
+				endorseKey := append(endorsePrefix, iu.DID...)
+
+				//endorse value
+				endorseValue := bytes.NewBuffer(nil)
+				serialization.WriteUint32(endorseValue, uint32(len(endorse)))
+				for k := 0; k < len(endorse); k++ {
+					serialization.WriteVarBytes(endorseValue, endorse[k])
+				}
+
+				// endorse put value
+				bd.st.BatchPut(endorseKey, endorseValue.Bytes())
+			}
 		}
 
 		for index := 0; index < len(b.Transactions[i].Outputs); index++ {
@@ -1383,16 +1442,14 @@ func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
 	return true
 }
 
-func (bd *ChainStore) GetIdentity(namespace []byte, id []byte) ([]byte, error) {
+func (bd *ChainStore) GetIdentity(did []byte) ([]byte, error) {
 
 	// idKey
 	idPrefix := []byte{byte(ST_IDENTITY)}
-	idKey := append(idPrefix, "did:"...)
-	idKey = append(idKey, namespace...)
-	idKey = append(idKey, ":"...)
-	idKey = append(idKey, id...)
+	idKey := append(idPrefix, did...)
 	idValue, err := bd.st.Get(idKey)
 	if err != nil {
+		log.Errorf("[GetIdentity] can't Get did: %s", did)
 		return nil, err
 	}
 
@@ -1550,4 +1607,28 @@ func (bd *ChainStore) GetAssets() map[Uint256]*Asset {
 	}
 
 	return assets
+}
+
+func (bd *ChainStore) GetIdentityEndorse(did []byte) (map[int][]byte, error) {
+	endorse := make(map[int][]byte)
+
+	idPrefix := []byte{byte(ST_ENDORSE)}
+	idKey := append(idPrefix, did...)
+
+	ieData, err := bd.st.Get(idKey)
+	if err != nil {
+		log.Errorf("[GetIdentityEndorse] can't find did: %s", did)
+		return nil, nil
+	}
+
+	r := bytes.NewReader(ieData)
+	n, err := serialization.ReadUint32(r)
+	for i := 0; i < int(n); i++ {
+		endorse[i], err = serialization.ReadVarBytes(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return endorse, nil
 }

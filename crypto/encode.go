@@ -316,3 +316,19 @@ func NewPubKey(priKey []byte) *PubKey {
 	pubKey.Y = privateKey.PublicKey.Y
 	return pubKey
 }
+
+func NewPublicKey(priKey []byte) *ecdsa.PublicKey {
+	privateKey := new(ecdsa.PrivateKey)
+	privateKey.PublicKey.Curve = algSet.Curve
+
+	k := new(big.Int)
+	k.SetBytes(priKey)
+	privateKey.D = k
+
+	privateKey.PublicKey.X, privateKey.PublicKey.Y = algSet.Curve.ScalarBaseMult(k.Bytes())
+
+	publicKey := new(ecdsa.PublicKey)
+	publicKey.X = privateKey.PublicKey.X
+	publicKey.Y = privateKey.PublicKey.Y
+	return publicKey
+}
