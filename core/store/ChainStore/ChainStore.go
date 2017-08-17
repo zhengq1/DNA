@@ -14,8 +14,10 @@ import (
 	"DNA/core/transaction/payload"
 	"DNA/core/validation"
 	"DNA/crypto"
+	"DNA/did"
 	"DNA/events"
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -1367,7 +1369,17 @@ func (bd *ChainStore) GetAccount(programHash Uint160) (*account.AccountState, er
 }
 
 func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
-	//su := Tx.Payload.(*payload.IdentityUpdate)
+	su := Tx.Payload.(*payload.IdentityUpdate)
+
+	var ddo did.DDO
+	json.Unmarshal(su.DDO, &ddo)
+
+	err := ddo.VerifySignature()
+	if err != nil {
+		log.Fatal("[IsIdentityUpdaterVaild] VerifySignature failed, err = ", err)
+		return false
+	}
+
 	return true
 }
 

@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
@@ -112,6 +113,36 @@ func getCurrentDirectory() string {
 	}
 	return dir
 }
+
+func getIdentityUpdate(params []interface{}) map[string]interface{} {
+	if len(params) < 2 {
+		return DnaRpcNil
+	}
+	var Method string
+	var id string
+
+	switch params[0].(type) {
+	case string:
+		Method = params[0].(string)
+	default:
+		return DnaRpcInvalidParameter
+	}
+
+	switch params[1].(type) {
+	case string:
+		id = params[1].(string)
+	default:
+		return DnaRpcInvalidParameter
+	}
+
+	ddo, err := ledger.DefaultLedger.Store.GetIdentity([]byte(Method), []byte(id))
+	if err != nil {
+		return DnaRpcInvalidParameter
+	}
+
+	return DnaRpc(json.RawMessage(ddo))
+}
+
 func getBestBlockHash(params []interface{}) map[string]interface{} {
 	hash := ledger.DefaultLedger.Blockchain.CurrentBlockHash()
 	return DnaRpc(ToHexString(hash.ToArray()))

@@ -9,6 +9,7 @@ import (
 	Err "DNA/net/httprestful/error"
 	. "DNA/net/protocol"
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strconv"
@@ -445,7 +446,7 @@ func GetIdentityUpdate(cmd map[string]interface{}) map[string]interface{} {
 		resp["Result"] = err
 		return resp
 	}
-	resp["Result"] = string(val)
+	resp["Result"] = json.RawMessage(val)
 	return resp
 }
 
