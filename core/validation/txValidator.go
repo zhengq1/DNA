@@ -36,12 +36,12 @@ func VerifyTransaction(Tx *tx.Transaction) ErrCode {
 		return ErrAttributeProgram
 	}
 
-	if err := CheckTransactionContracts(Tx); err != nil {
+	if err := CheckTransactionPayload(Tx); err != nil {
 		log.Warn("[VerifyTransaction],", err)
 		return ErrTransactionContracts
 	}
 
-	if err := CheckTransactionPayload(Tx); err != nil {
+	if err := CheckTransactionContracts(Tx); err != nil {
 		log.Warn("[VerifyTransaction],", err)
 		return ErrTransactionPayload
 	}
@@ -201,7 +201,7 @@ func CheckTransactionBalance(Tx *tx.Transaction) error {
 			return errors.New("Invalide transaction UTXO output.")
 		}
 	}
-	if Tx.TxType == tx.IssueAsset {
+	if Tx.TxType == tx.IssueAsset || Tx.TxType == tx.DestroyUTXO {
 		if len(Tx.UTXOInputs) > 0 {
 			return errors.New("Invalide Issue transaction.")
 		}
@@ -247,10 +247,10 @@ func CheckTransactionPayload(Tx *tx.Transaction) error {
 		return nil
 	case *payload.RegisterAsset:
 		if pld.Asset.Precision < asset.MinPrecision || pld.Asset.Precision > asset.MaxPrecision {
-			return errors.New("Invalide asset Precision.")
+			return errors.New("[CheckTransactionPayload],invalid asset Precision.")
 		}
 		if checkAmountPrecise(pld.Amount, pld.Asset.Precision) {
-			return errors.New("Invalide asset value,out of precise.")
+			return errors.New("[CheckTransactionPayload],invalid asset value,out of precise.")
 		}
 	case *payload.IssueAsset:
 	case *payload.TransferAsset:
@@ -259,8 +259,12 @@ func CheckTransactionPayload(Tx *tx.Transaction) error {
 	case *payload.Record:
 	case *payload.DeployCode:
 	case *payload.DataFile:
+	case *payload.DestroyUTXO:
+		if len(Tx.Outputs) > 0 {
+			return errors.New("[CheckTransactionPayload],invalid transaction outputs.")
+		}
 	default:
-		return errors.New("[txValidator],invalidate transaction payload type.")
+		return errors.New("[CheckTransactionPayload],invalid transaction payload type.")
 	}
 	return nil
 }
