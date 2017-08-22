@@ -17,10 +17,10 @@ const (
 	Token    AssetType = 0x11
 )
 
-const (
-	MaxPrecision = 8
-	MinPrecision = 0
-)
+//const (
+//	MaxPrecision = 8
+//	MinPrecision = 0
+//)
 
 type AssetRecordType byte
 

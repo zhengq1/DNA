@@ -21,10 +21,10 @@ func VerifyTransaction(Tx *tx.Transaction) ErrCode {
 		return ErrDuplicateInput
 	}
 
-	if err := CheckAssetPrecision(Tx); err != nil {
-		log.Warn("[VerifyTransaction],", err)
-		return ErrAssetPrecision
-	}
+	//if err := CheckAssetPrecision(Tx); err != nil {
+	//	log.Warn("[VerifyTransaction],", err)
+	//	return ErrAssetPrecision
+	//}
 
 	if err := CheckTransactionBalance(Tx); err != nil {
 		log.Warn("VerifyTransaction:", err)
@@ -181,29 +181,29 @@ func IsStateUpdaterVaild(tx *tx.Transaction, ledger *ledger.Ledger) bool {
 	return ledger.IsStateUpdaterVaild(tx)
 }
 
-func CheckAssetPrecision(Tx *tx.Transaction) error {
-	if len(Tx.Outputs) == 0 {
-		return nil
-	}
-	assetOutputs := make(map[common.Uint256][]*tx.TxOutput, len(Tx.Outputs))
-
-	for _, v := range Tx.Outputs {
-		assetOutputs[v.AssetID] = append(assetOutputs[v.AssetID], v)
-	}
-	for k, outputs := range assetOutputs {
-		asset, err := ledger.DefaultLedger.GetAsset(k)
-		if err != nil {
-			return errors.New("The asset not exist in local blockchain.")
-		}
-		precision := asset.Precision
-		for _, output := range outputs {
-			if checkAmountPrecise(output.Value, precision) {
-				return errors.New("The precision of asset is incorrect.")
-			}
-		}
-	}
-	return nil
-}
+//func CheckAssetPrecision(Tx *tx.Transaction) error {
+//	if len(Tx.Outputs) == 0 {
+//		return nil
+//	}
+//	assetOutputs := make(map[common.Uint256][]*tx.TxOutput, len(Tx.Outputs))
+//
+//	for _, v := range Tx.Outputs {
+//		assetOutputs[v.AssetID] = append(assetOutputs[v.AssetID], v)
+//	}
+//	for k, outputs := range assetOutputs {
+//		asset, err := ledger.DefaultLedger.GetAsset(k)
+//		if err != nil {
+//			return errors.New("The asset not exist in local blockchain.")
+//		}
+//		precision := asset.Precision
+//		for _, output := range outputs {
+//			if checkAmountPrecise(output.Value, precision) {
+//				return errors.New("The precision of asset is incorrect.")
+//			}
+//		}
+//	}
+//	return nil
+//}
 
 func CheckTransactionBalance(Tx *tx.Transaction) error {
 	for _, v := range Tx.Outputs {
@@ -241,9 +241,9 @@ func CheckTransactionContracts(Tx *tx.Transaction) error {
 	}
 }
 
-func checkAmountPrecise(amount common.Fixed64, precision byte) bool {
-	return amount.GetData()%int64(math.Pow(10, 8-float64(precision))) != 0
-}
+//func checkAmountPrecise(amount common.Fixed64, precision byte) bool {
+//	return amount.GetData()%int64(math.Pow(10, 8-float64(precision))) != 0
+//}
 
 func CheckTransactionPayload(Tx *tx.Transaction) error {
 
@@ -253,12 +253,12 @@ func CheckTransactionPayload(Tx *tx.Transaction) error {
 		_ = pld.Cert
 		return nil
 	case *payload.RegisterAsset:
-		if pld.Asset.Precision < asset.MinPrecision || pld.Asset.Precision > asset.MaxPrecision {
-			return errors.New("[CheckTransactionPayload],invalid asset Precision.")
-		}
-		if checkAmountPrecise(pld.Amount, pld.Asset.Precision) {
-			return errors.New("[CheckTransactionPayload],invalid asset value,out of precise.")
-		}
+		//if pld.Asset.Precision < asset.MinPrecision || pld.Asset.Precision > asset.MaxPrecision {
+		//	return errors.New("[CheckTransactionPayload],invalid asset Precision.")
+		//}
+		//if checkAmountPrecise(pld.Amount, pld.Asset.Precision) {
+		//	return errors.New("[CheckTransactionPayload],invalid asset value,out of precise.")
+		//}
 	case *payload.IssueAsset:
 		if len(Tx.UTXOInputs) > 0 {
 			return errors.New("Invalide Issue transaction.")
