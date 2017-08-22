@@ -3,14 +3,12 @@ package validation
 import (
 	"DNA/common"
 	"DNA/common/log"
-	"DNA/core/asset"
 	"DNA/core/ledger"
 	tx "DNA/core/transaction"
 	"DNA/core/transaction/payload"
 	. "DNA/errors"
 	"errors"
 	"fmt"
-	"math"
 )
 
 // VerifyTransaction verifys received single transaction
@@ -134,6 +132,12 @@ func VerifyTransactionWithLedger(Tx *tx.Transaction, ledger *ledger.Ledger) ErrC
 		log.Info("[VerifyTransactionWithLedger] duplicate transaction check faild.")
 		return ErrTxHashDuplicate
 	}
+	if Tx.TxType == tx.StateUpdate {
+		if !IsStateUpdaterVaild(Tx, ledger) {
+			log.Info("[IsStateUpdaterVaild] faild.")
+			return ErrStateUpdateError
+		}
+	}
 	return ErrNoError
 }
 
@@ -149,12 +153,6 @@ func CheckDuplicateInput(tx *tx.Transaction) error {
 			}
 		}
 	}
-	if Tx.TxType == tx.StateUpdate {
-		if !IsStateUpdaterVaild(Tx, ledger) {
-			return errors.New("[IsStateUpdaterVaild] faild.")
-		}
-	}
-
 	return nil
 }
 
