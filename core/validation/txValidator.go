@@ -149,6 +149,12 @@ func CheckDuplicateInput(tx *tx.Transaction) error {
 			}
 		}
 	}
+	if Tx.TxType == tx.StateUpdate {
+		if !IsStateUpdaterVaild(Tx, ledger) {
+			return errors.New("[IsStateUpdaterVaild] faild.")
+		}
+	}
+
 	return nil
 }
 
@@ -169,6 +175,10 @@ func CheckDuplicateUtxoInBlock(tx *tx.Transaction, txPoolInputs []string) error 
 
 func IsDoubleSpend(tx *tx.Transaction, ledger *ledger.Ledger) bool {
 	return ledger.IsDoubleSpend(tx)
+}
+
+func IsStateUpdaterVaild(tx *tx.Transaction, ledger *ledger.Ledger) bool {
+	return ledger.IsStateUpdaterVaild(tx)
 }
 
 func CheckAssetPrecision(Tx *tx.Transaction) error {
@@ -259,6 +269,7 @@ func CheckTransactionPayload(Tx *tx.Transaction) error {
 	case *payload.Record:
 	case *payload.DeployCode:
 	case *payload.DataFile:
+	case *payload.StateUpdate:
 	case *payload.DestroyUTXO:
 		if len(Tx.Outputs) > 0 {
 			return errors.New("[CheckTransactionPayload],invalid transaction outputs.")
