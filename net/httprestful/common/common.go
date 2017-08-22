@@ -17,6 +17,7 @@ import (
 var node Noder
 
 const TlsPort int = 443
+const Precision float64 = 2
 
 type ApiServer interface {
 	Start() error
@@ -86,7 +87,7 @@ func GetTotalIssued(cmd map[string]interface{}) map[string]interface{} {
 		resp["Error"] = Err.INVALID_PARAMS
 		return resp
 	}
-	val := float64(amount) / math.Pow(10, 8)
+	val := float64(amount) / math.Pow(10, Precision)
 	//valStr := strconv.FormatFloat(val, 'f', -1, 64)
 	resp["Result"] = val
 	return resp
@@ -235,7 +236,7 @@ func GetBalanceByAddr(cmd map[string]interface{}) map[string]interface{} {
 			balance = balance + v.Value
 		}
 	}
-	val := float64(balance) / math.Pow(10, 8)
+	val := float64(balance) / math.Pow(10, Precision)
 	//valStr := strconv.FormatFloat(val, 'f', -1, 64)
 	resp["Result"] = val
 	return resp
@@ -264,7 +265,7 @@ func GetBalanceByAsset(cmd map[string]interface{}) map[string]interface{} {
 			}
 		}
 	}
-	val := float64(balance) / math.Pow(10, 8)
+	val := float64(balance) / math.Pow(10, Precision)
 	//valStr := strconv.FormatFloat(val, 'f', -1, 64)
 	resp["Result"] = val
 	return resp
@@ -305,7 +306,7 @@ func GetUnspends(cmd map[string]interface{}) map[string]interface{} {
 		}
 		var unspendsInfo []UTXOUnspentInfo
 		for _, v := range u {
-			val := float64(v.Value) / math.Pow(10, 8)
+			val := float64(v.Value) / math.Pow(10, Precision)
 			//valStr := strconv.FormatFloat(val, 'f', -1, 64)
 			unspendsInfo = append(unspendsInfo, UTXOUnspentInfo{ToHexString(v.Txid.ToArrayReverse()), v.Index, val})
 		}
@@ -352,7 +353,7 @@ func GetUnspendOutput(cmd map[string]interface{}) map[string]interface{} {
 	}
 	var UTXOoutputs []UTXOUnspentInfo
 	for _, v := range infos {
-		val := float64(v.Value) / math.Pow(10, 8)
+		val := float64(v.Value) / math.Pow(10, Precision)
 		//valStr := strconv.FormatFloat(val, 'f', -1, 64)
 		UTXOoutputs = append(UTXOoutputs, UTXOUnspentInfo{Txid: ToHexString(v.Txid.ToArrayReverse()), Index: v.Index, Value: val})
 	}
