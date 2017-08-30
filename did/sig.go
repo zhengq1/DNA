@@ -3,6 +3,7 @@ package did
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -24,7 +25,12 @@ type Signature struct {
 func ConstructSignature(id string, alg SigAlg, signature []byte) (*Signature, error) {
 	st := new(Signature)
 
-	st.Creator = id
+	i := strings.Index(id, "#")
+	if i == -1 {
+		st.Creator = id + "#key/1"
+	} else {
+		st.Creator = id
+	}
 	st.Value = signature
 
 	switch alg {

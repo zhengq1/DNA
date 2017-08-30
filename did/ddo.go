@@ -7,19 +7,19 @@ import (
 )
 
 type DDO struct {
-	Context  string            `json:"@context"`
-	ID       string            `json:"id"`
-	CertHash string            `json:"certhash"`
-	Owner    []*OwnerKey       `json:"owner"`
-	Service  map[string]string `json:"service,omitempty"`
-	Sig      *Signature        `json:"signature,omitempty"`
+	Context string            `json:"@context"`
+	ID      string            `json:"id"`
+	Cert    *Cert             `json:"cert,omitempty"`
+	Owner   []*OwnerKey       `json:"owner"`
+	Service map[string]string `json:"service,omitempty"`
+	Sig     *Signature        `json:"signature,omitempty"`
 }
 
-func CreateDDO(did string, pk PubKey, sk PriKey, certhash string, service map[string]string) ([]byte, error) {
+func CreateDDO(did string, pk PubKey, sk PriKey, cert *Cert, service map[string]string) ([]byte, error) {
 	ddo := DDO{
-		Context:  "http://example.com/context",
-		ID:       did,
-		CertHash: certhash,
+		Context: "http://example.com/context",
+		ID:      did,
+		Cert:    cert,
 		Owner: []*OwnerKey{&OwnerKey{
 			ID:  did + "#key/1",
 			Key: pk,
@@ -51,12 +51,12 @@ func (p *DDO) VerifySignature() error {
 	}
 
 	msg, err := json.Marshal(DDO{
-		Context:  p.Context,
-		ID:       p.ID,
-		CertHash: p.CertHash,
-		Owner:    p.Owner,
-		Service:  p.Service,
-		Sig:      nil,
+		Context: p.Context,
+		ID:      p.ID,
+		Cert:    p.Cert,
+		Owner:   p.Owner,
+		Service: p.Service,
+		Sig:     nil,
 	})
 	if err != nil {
 		return err
@@ -79,7 +79,7 @@ func (p *DDO) GetKey(ref string) (PubKey, error) {
 		return nil, errors.New("the id reference should contain fragment of the owner's key")
 	}
 
-	id := ref[:i+1]
+	id := ref[:i]
 	if id != p.ID {
 		return nil, errors.New("id dose not match")
 	}

@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -1433,10 +1434,69 @@ func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
 	var ddo did.DDO
 	json.Unmarshal(su.DDO, &ddo)
 
+	if ddo.ID != string(su.DID) {
+		log.Fatal("[IsIdentityUpdaterVaild] DDO' ID not equal to DID")
+		return false
+	}
+
+	for _, key := range ddo.Owner {
+		i := strings.Index(key.ID, "#")
+		if i == -1 {
+			log.Fatal("[IsIdentityUpdaterVaild] Owner'ID reference should contain fragment of the Owner's key")
+			return false
+		}
+
+		id := key.ID[:i]
+		if id != string(su.DID) {
+			log.Fatal("[IsIdentityUpdaterVaild] Owner'ID not equal to DID")
+			return false
+		}
+	}
+
+	// verify ddo sign
 	err := ddo.VerifySignature()
 	if err != nil {
 		log.Fatal("[IsIdentityUpdaterVaild] VerifySignature failed, err = ", err)
 		return false
+	}
+
+	// verify cert sign
+	if ddo.Cert != nil {
+		if ddo.Cert.ID != string(su.DID) {
+			log.Fatal("[IsIdentityUpdaterVaild] Cert' ID not equal to DID")
+			return false
+		}
+
+		i := strings.Index(ddo.Cert.Sig.Creator, "#")
+		if i == -1 {
+			log.Error("[IsIdentityUpdaterVaild] the id reference should contain fragment of the owner's key")
+			return false
+		}
+
+		var signddo []byte
+		signdid := ddo.Cert.Sig.Creator[:i]
+		if bytes.Equal([]byte(signdid), su.DID) {
+			signddo = su.DDO
+		} else {
+			signddo, err = bd.GetIdentity([]byte(signdid))
+			if err != nil {
+				return false
+			}
+		}
+
+		var sddo did.DDO
+		json.Unmarshal(signddo, &sddo)
+
+		pk, err := sddo.GetKey(ddo.Cert.Sig.Creator)
+		if err != nil {
+			return false
+		}
+
+		err = ddo.Cert.VerifySignature(pk)
+		if err != nil {
+			log.Fatal("[IsIdentityUpdaterVaild] Cert VerifySignature failed, err = ", err)
+			return false
+		}
 	}
 
 	return true
