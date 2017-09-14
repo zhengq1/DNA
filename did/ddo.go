@@ -38,7 +38,17 @@ func CreateDDO(did string, pk PubKey, sk PriKey, cert *Cert, service map[string]
 		return nil, err
 	}
 
-	ddo.Sig, err = ConstructSignature(ddo.Owner[0].ID, ECDSA, sig)
+	alg := ECDSA
+	switch sk.(type) {
+	case DNAPriKey:
+		if CurveName() == "SM2" {
+			alg = SM2
+		}
+		break
+	default:
+		return nil, errors.New("unknown signature algorithm")
+	}
+	ddo.Sig, err = ConstructSignature(ddo.Owner[0].ID, alg, sig)
 	if err != nil {
 		return nil, err
 	}

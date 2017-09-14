@@ -41,9 +41,7 @@ func ConstructSignature(id string, alg SigAlg, signature []byte) (*Signature, er
 		st.Type = "EcdsaKoblitzSignature2016"
 		break
 	case SM2:
-		//st.Type = "SM2Signature"
-		st.Type = "EcdsaKoblitzSignature2016"
-		break
+		st.Type = "SM2Signature"
 	default:
 		return nil, errors.New("unknown signature algorithm")
 	}

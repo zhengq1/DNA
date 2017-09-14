@@ -1432,7 +1432,11 @@ func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
 	su := Tx.Payload.(*payload.IdentityUpdate)
 
 	var ddo did.DDO
-	json.Unmarshal(su.DDO, &ddo)
+	err := json.Unmarshal(su.DDO, &ddo)
+	if err != nil {
+		log.Fatal("[IsIdentityUpdaterVaild] json unmarsha1 error,", err)
+		return false
+	}
 
 	if ddo.ID != string(su.DID) {
 		log.Fatal("[IsIdentityUpdaterVaild] DDO' ID not equal to DID")
@@ -1440,6 +1444,7 @@ func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
 	}
 
 	for _, key := range ddo.Owner {
+		//log.Fatal("key: ", key)
 		i := strings.Index(key.ID, "#")
 		if i == -1 {
 			log.Fatal("[IsIdentityUpdaterVaild] Owner'ID reference should contain fragment of the Owner's key")
@@ -1454,7 +1459,7 @@ func (bd *ChainStore) IsIdentityUpdaterVaild(Tx *tx.Transaction) bool {
 	}
 
 	// verify ddo sign
-	err := ddo.VerifySignature()
+	err = ddo.VerifySignature()
 	if err != nil {
 		log.Fatal("[IsIdentityUpdaterVaild] VerifySignature failed, err = ", err)
 		return false

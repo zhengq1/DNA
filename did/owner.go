@@ -26,36 +26,26 @@ type OwnerJSON struct {
 }
 
 const (
-	LABEL_ECDSA = "EcDsaPubKey"
-	//LABEL_SM2   = "SM2PublicKey"
-	LABEL_SM2 = "EcDsaPublicKey"
+	LABEL_ECDSA = "EcDsaPublicKey"
+	LABEL_SM2   = "SM2PublicKey"
 )
 
 func (p *OwnerKey) UnmarshalJSON(data []byte) error {
 	var key OwnerJSON
-	var err error
 	json.Unmarshal(data, &key)
 
 	var tmp PubKey = nil
 	for _, t := range key.Type {
 		switch t {
-		case LABEL_ECDSA:
-			pk := new(ECPubKey)
-			err := pk.parseKey(key.Curve, key.PubKey)
+		case LABEL_ECDSA, LABEL_SM2:
+			if CurveName() != key.Curve {
+				return errors.New("unmatched curve")
+			}
+			pk, err := DecodeDNAKey(key.PubKey)
 			if err != nil {
 				return err
 			}
 			tmp = pk
-			break
-		case LABEL_SM2:
-			//if key.Curve != "SM2" {
-			if key.Curve != "EcdsaP256r1" {
-				return errors.New("unsupported curve")
-			}
-			tmp, err = DecodeSM2PubKey(key.PubKey)
-			if err != nil {
-				return err
-			}
 			break
 		}
 	}
@@ -71,24 +61,23 @@ func (p *OwnerKey) UnmarshalJSON(data []byte) error {
 
 func (p *OwnerKey) MarshalJSON() ([]byte, error) {
 	var jobj OwnerJSON
-	var err error
 	jobj.ID = p.ID
 	jobj.Type = append(jobj.Type, "CryptographicKey")
 
 	switch v := p.Key.(type) {
-	case *ECPubKey:
-		jobj.Type = append(jobj.Type, LABEL_ECDSA)
-		jobj.Curve = v.Curve.Params().Name
-		jobj.PubKey = v.Encode()
-		break
-	case *SM2PublicKey:
-		jobj.Type = append(jobj.Type, LABEL_SM2)
-		//jobj.Curve = "SM2"
-		jobj.Curve = "EcdsaP256r1"
-		jobj.PubKey, err = EncodeSM2PubKey(v)
+	case DNAPubKey:
+		buf, err := EncodeDNAKey(v)
 		if err != nil {
 			return nil, err
 		}
+		jobj.PubKey = buf
+		jobj.Curve = CurveName()
+		if jobj.Curve == "SM2" {
+			jobj.Type = append(jobj.Type, LABEL_SM2)
+		} else {
+			jobj.Type = append(jobj.Type, LABEL_ECDSA)
+		}
+
 		break
 	default:
 		return nil, errors.New("unsupported public key")
