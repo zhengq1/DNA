@@ -11,6 +11,7 @@ type PriKey interface {
 
 type PubKey interface {
 	Verify(message, signature []byte) bool
+	VerifyAddress(ID string) bool
 }
 
 type OwnerKey struct {

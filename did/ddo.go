@@ -74,6 +74,9 @@ func (p *DDO) VerifySignature() error {
 	//TODO assume key and signature are all in ECDSA
 	for _, key := range p.Owner {
 		if key.ID == p.Sig.Creator {
+			if !key.Key.VerifyAddress(key.ID) {
+				return errors.New("verification address/publickey failed")
+			}
 			if key.Key.Verify(msg, p.Sig.Value) {
 				return nil
 			}
